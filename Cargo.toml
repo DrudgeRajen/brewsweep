@@ -1,0 +1,13 @@
+[package]
+name = "homebrew-usage-tracker"
+version = "0.1.0"
+edition = "2021"
+authors = ["Homebrew Usage Tracker Contributors"]
+description = "A tool to track and manage homebrew packages based on usage"
+
+[dependencies]
+chrono = "0.4"
+colored = "3.0"
+dialoguer = "0.10"
+rayon = "1.10.0"
+shellexpand = "3.0"
