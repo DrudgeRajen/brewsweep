@@ -7,7 +7,9 @@ description = "A tool to track and manage homebrew packages based on usage"
 
 [dependencies]
 chrono = "0.4"
-colored = "3.0"
-dialoguer = "0.10"
-rayon = "1.10.0"
-shellexpand = "3.0"
+crossterm = "0.29.0"
+color-eyre = "0.6.5"
+ratatui = "0.29.0"
+tracing = "0.1.41"
+itertools = "0.14.0"
+unicode-width = "0.2.0"
