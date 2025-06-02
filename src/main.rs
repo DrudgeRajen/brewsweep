@@ -95,34 +95,59 @@ impl Package {
                 PackageType::Formula => "Formula".to_string(),
                 PackageType::Cask => "Cask".to_string(),
             },
-            self.last_accessed.map_or_else(
-                || "Never".to_string(),
-                |time| match time.elapsed() {
-                    Ok(duration) => {
-                        let days = duration.as_secs() / 86400;
-                        if days == 0 {
-                            "Today".to_string()
-                        } else if days == 1 {
-                            "Yesterday".to_string()
-                        } else if days < 7 {
-                            format!("{} days ago", days)
-                        } else if days < 30 {
-                            format!("{} weeks ago", days / 7)
-                        } else if days < 365 {
-                            format!("{} months ago", days / 30)
-                        } else {
-                            format!("{} years ago", days / 365)
-                        }
-                    }
-                    Err(_) => "Unknown".to_string(),
-                },
-            ),
+            self.format_last_accessed(),
             self.last_accessed_path
                 .as_deref()
                 .unwrap_or("no path")
                 .to_string(),
         ]
     }
+
+    fn format_last_accessed(&self) -> String {
+        match self.last_accessed {
+            Some(time) => {
+                match time.elapsed() {
+                    Ok(duration) => {
+                        let secs = duration.as_secs();
+
+                        if secs < 60 {
+                            "Just now".to_string()
+                        } else if secs < 3600 {
+                            let mins = secs / 60;
+                            format!("{} min{} ago", mins, if mins == 1 { "" } else { "s" })
+                        } else if secs < 86400 {
+                            let hours = secs / 3600;
+                            format!("{} hour{} ago", hours, if hours == 1 { "" } else { "s" })
+                        } else if secs < 2592000 {
+                            // 30 days
+                            let days = secs / 86400;
+                            format!("{} day{} ago", days, if days == 1 { "" } else { "s" })
+                        } else if secs < 31536000 {
+                            // 365 days
+                            let months = secs / 2592000;
+                            format!("{} month{} ago", months, if months == 1 { "" } else { "s" })
+                        } else {
+                            let years = secs / 31536000;
+                            format!("{} year{} ago", years, if years == 1 { "" } else { "s" })
+                        }
+                    }
+                    Err(_) => {
+                        // If we can't calculate elapsed time, show the actual date
+                        use std::time::UNIX_EPOCH;
+                        if let Ok(duration_since_epoch) = time.duration_since(UNIX_EPOCH) {
+                            let timestamp = duration_since_epoch.as_secs();
+                            // Simple date formatting (you might want to use chrono crate for better formatting)
+                            format!("Timestamp: {}", timestamp)
+                        } else {
+                            "Unknown date".to_string()
+                        }
+                    }
+                }
+            }
+            None => "Never accessed".to_string(),
+        }
+    }
+
     fn name(&self) -> &str {
         &self.name
     }
@@ -470,11 +495,11 @@ impl App {
                                 AppState::ConfirmDelete(idx) => self.execute_delete(idx),
                                 _ => {}
                             },
-                            KeyCode::Char('d') | KeyCode::Delete => {
-                                if matches!(self.app_state, AppState::Table) {
-                                    self.delete_selected_package();
-                                }
-                            }
+                            KeyCode::Char('d') | KeyCode::Delete => match self.app_state {
+                                AppState::Table => self.delete_selected_package(),
+                                AppState::PackageSelected(idx) => self.confirm_delete(idx),
+                                _ => {}
+                            },
                             KeyCode::Char('r') => {
                                 if matches!(self.app_state, AppState::Table) {
                                     self.start_scanning();
@@ -832,7 +857,7 @@ impl App {
         frame.render_widget(name_type, chunks[0]);
 
         // Last accessed
-        let accessed = Paragraph::new(format!("Last Accessed: {}", package.last_accessed()))
+        let accessed = Paragraph::new(format!("Last Accessed: {}", package.format_last_accessed()))
             .style(Style::default().fg(Color::Yellow));
         frame.render_widget(accessed, chunks[1]);
 
