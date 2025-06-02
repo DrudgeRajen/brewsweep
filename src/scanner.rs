@@ -1,6 +1,7 @@
+use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
-use std::process::Command;
-use std::sync::{Arc, Mutex};
+use std::process::{Command, Stdio};
+use std::sync::{mpsc, Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime};
 use std::{fs, thread};
 
@@ -317,24 +318,64 @@ impl HomebrewScanner {
         state.is_paused = !state.is_paused;
     }
 
-    pub fn delete_package(package: &Package) -> Result<(), String> {
+    pub fn delete_package_with_output(
+        package: &Package,
+        output_sender: mpsc::Sender<String>,
+    ) -> Result<(), String> {
         let package_arg = match package.package_type {
             PackageType::Formula => "--formula",
             PackageType::Cask => "--cask",
         };
 
-        let output = Command::new("brew")
-            .args(["uninstall", package_arg, &package.name])
-            .output()
-            .map_err(|e| format!("Failed to run brew uninstall: {}", e))?;
+        // Send initial command info
+        let command_line = format!("$ brew uninstall {} {}", package_arg, package.name);
+        let _ = output_sender.send(command_line);
+        let _ = output_sender.send("".to_string()); // Empty line
 
-        if !output.status.success() {
-            let error_msg = String::from_utf8_lossy(&output.stderr);
+        // Start the brew uninstall process with piped output
+        let mut child = Command::new("brew")
+            .args(["uninstall", package_arg, &package.name])
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|e| format!("Failed to start brew uninstall: {}", e))?;
+
+        // Read stdout in real-time
+        if let Some(stdout) = child.stdout.take() {
+            let reader = BufReader::new(stdout);
+            for line in reader.lines() {
+                match line {
+                    Ok(line_content) => {
+                        let _ = output_sender.send(line_content);
+                    }
+                    Err(_) => break,
+                }
+            }
+        }
+
+        // Wait for the process to complete
+        let exit_status = child
+            .wait()
+            .map_err(|e| format!("Failed to wait for brew process: {}", e))?;
+
+        if !exit_status.success() {
+            // Read stderr if the command failed
+            if let Some(stderr) = child.stderr.take() {
+                let reader = BufReader::new(stderr);
+                for line in reader.lines() {
+                    if let Ok(line_content) = line {
+                        let _ = output_sender.send(format!("ERROR: {}", line_content));
+                    }
+                }
+            }
             return Err(format!(
-                "Failed to uninstall {}: {}",
-                package.name, error_msg
+                "brew uninstall failed with exit code: {:?}",
+                exit_status.code()
             ));
         }
+
+        let _ = output_sender.send("".to_string()); // Empty line
+        let _ = output_sender.send("✅ Uninstall completed successfully!".to_string());
 
         Ok(())
     }

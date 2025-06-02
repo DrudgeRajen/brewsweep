@@ -12,6 +12,7 @@ use ratatui::{
     DefaultTerminal, Frame,
 };
 use std::{
+    sync::mpsc,
     thread,
     time::{Duration, SystemTime},
 };
@@ -164,9 +165,11 @@ struct App {
     app_state: AppState,
     scanner: Option<HomebrewScanner>,
     scan_handle: Option<thread::JoinHandle<()>>,
+    delete_output_receiver: Option<mpsc::Receiver<String>>,
+    delete_result_receiver: Option<mpsc::Receiver<Result<(), String>>>,
+    delete_output: Vec<String>,
     delete_message: Option<String>,
     delete_success: bool,
-    delete_handle: Option<thread::JoinHandle<Result<(), String>>>,
 }
 
 impl App {
@@ -181,7 +184,9 @@ impl App {
             app_state: AppState::Table,
             scanner: None,
             scan_handle: None,
-            delete_handle: None,
+            delete_output_receiver: None,
+            delete_result_receiver: None,
+            delete_output: Vec::new(),
             delete_message: None,
             delete_success: false,
         }
@@ -243,48 +248,62 @@ impl App {
             self.app_state = AppState::Deleting(package_index);
             let package = self.items[package_index].clone();
 
+            // Clear previous output
+            self.delete_output.clear();
+
+            // Create channels for output and result
+            let (output_sender, output_receiver) = mpsc::channel();
+            let (result_sender, result_receiver) = mpsc::channel();
+
+            self.delete_output_receiver = Some(output_receiver);
+            self.delete_result_receiver = Some(result_receiver);
+
             // Execute delete in background thread
-            let package_clone = package.clone();
-            thread::spawn(move || HomebrewScanner::delete_package(&package_clone));
+            thread::spawn(move || {
+                let result = HomebrewScanner::delete_package_with_output(&package, output_sender);
+                let _ = result_sender.send(result);
+            });
         }
     }
 
-    fn check_delete_completion(&mut self) {
-        if let Some(handle) = self.delete_handle.take() {
-            if handle.is_finished() {
-                match handle.join() {
-                    Ok(result) => {
-                        if let AppState::Deleting(package_index) = self.app_state {
-                            let package_name = self
-                                .items
-                                .get(package_index)
-                                .map(|p| p.name.clone())
-                                .unwrap_or_else(|| "Unknown".to_string());
+    fn check_delete_progress(&mut self) {
+        // Check for new output lines
+        if let Some(ref receiver) = self.delete_output_receiver {
+            while let Ok(line) = receiver.try_recv() {
+                self.delete_output.push(line);
+                // Keep only the last 20 lines to prevent memory buildup
+                if self.delete_output.len() > 20 {
+                    self.delete_output.remove(0);
+                }
+            }
+        }
 
-                            match result {
-                                Ok(()) => {
-                                    let message =
-                                        format!("Successfully deleted package '{}'", package_name);
-                                    self.handle_delete_result(package_index, true, message);
-                                }
-                                Err(e) => {
-                                    let message =
-                                        format!("Failed to delete '{}': {}", package_name, e);
-                                    self.handle_delete_result(package_index, false, message);
-                                }
-                            }
+        // Check if deletion completed
+        if let Some(ref receiver) = self.delete_result_receiver {
+            if let Ok(result) = receiver.try_recv() {
+                // Clear receivers
+                self.delete_output_receiver = None;
+                self.delete_result_receiver = None;
+
+                if let AppState::Deleting(package_index) = self.app_state {
+                    let package_name = self
+                        .items
+                        .get(package_index)
+                        .map(|p| p.name.clone())
+                        .unwrap_or_else(|| "Unknown".to_string());
+
+                    match result {
+                        Ok(()) => {
+                            let message =
+                                format!("Successfully deleted package '{}'", package_name);
+                            self.handle_delete_result(package_index, true, message);
                         }
-                    }
-                    Err(_) => {
-                        if let AppState::Deleting(package_index) = self.app_state {
-                            let message = "Delete operation was interrupted".to_string();
+                        Err(e) => {
+                            let message = format!("Failed to delete '{}': {}", package_name, e);
                             self.handle_delete_result(package_index, false, message);
                         }
                     }
                 }
-            } else {
-                // Put the handle back if not finished
-                self.delete_handle = Some(handle);
             }
         }
     }
@@ -405,7 +424,7 @@ impl App {
             }
 
             if matches!(self.app_state, AppState::Deleting(_)) {
-                self.check_delete_completion();
+                self.check_delete_progress();
             }
 
             // Handle events with timeout for responsive UI
@@ -872,44 +891,64 @@ impl App {
         let package = &self.items[package_index];
 
         let deleting_block = Block::default()
-            .title("🗑️  Deleting Package")
+            .title("🗑️  Uninstalling Package")
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::Yellow))
             .style(Style::default().bg(self.colors.buffer_bg));
 
         let chunks = Layout::default()
             .direction(ratatui::layout::Direction::Vertical)
-            .margin(2)
+            .margin(1)
             .constraints([
-                Constraint::Length(2), // Status
-                Constraint::Length(1), // Package name
-                Constraint::Length(1), // Empty space
-                Constraint::Length(1), // Please wait
+                Constraint::Length(1), // Package info
+                Constraint::Length(1), // Empty line
+                Constraint::Min(5),    // Command output
+                Constraint::Length(1), // Controls
             ])
             .split(deleting_block.inner(frame.area()));
 
         frame.render_widget(deleting_block, frame.area());
 
-        // Status
-        let status = Paragraph::new(format!(
-            "Deleting package: {}\nRunning: brew uninstall...",
-            package.name
+        // Package info
+        let package_info = Paragraph::new(format!(
+            "Uninstalling: {} ({})",
+            package.name,
+            package.package_type()
         ))
-        .alignment(Alignment::Center)
         .style(Style::default().fg(Color::Yellow));
-        frame.render_widget(status, chunks[0]);
+        frame.render_widget(package_info, chunks[0]);
 
-        // Package type
-        let package_type = Paragraph::new(format!("Type: {}", package.package_type()))
-            .alignment(Alignment::Center)
-            .style(Style::default().fg(self.colors.row_fg));
-        frame.render_widget(package_type, chunks[1]);
+        // Command output
+        let output_text = if self.delete_output.is_empty() {
+            "Starting uninstall process...".to_string()
+        } else {
+            self.delete_output.join("\n")
+        };
 
-        // Please wait
-        let wait = Paragraph::new("Please wait...")
+        let output_block = Block::default()
+            .title("Command Output")
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Cyan));
+
+        let output_paragraph = Paragraph::new(output_text)
+            .block(output_block)
+            .style(Style::default().fg(Color::Green))
+            .scroll((
+                if self.delete_output.len() > 10 {
+                    self.delete_output.len().saturating_sub(10) as u16
+                } else {
+                    0
+                },
+                0,
+            ));
+
+        frame.render_widget(output_paragraph, chunks[2]);
+
+        // Controls
+        let controls = Paragraph::new("[c] Stop Watching  [ESC] Force Quit")
             .alignment(Alignment::Center)
             .style(Style::default().fg(Color::Gray));
-        frame.render_widget(wait, chunks[3]);
+        frame.render_widget(controls, chunks[3]);
     }
 }
 
