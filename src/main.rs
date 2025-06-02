@@ -209,6 +209,7 @@ impl App {
 
             if scanning_state.scan_complete {
                 self.items = scanner.get_packages();
+                self.sort_packages_by_usage();
                 self.app_state = AppState::ScanComplete;
                 self.longest_item_lens = constraint_len_calculator(&self.items);
                 self.scroll_state = ScrollbarState::new(if self.items.is_empty() {
@@ -314,6 +315,8 @@ impl App {
             if package_index < self.items.len() {
                 self.items.remove(package_index);
 
+                self.sort_packages_by_usage();
+
                 // Update table state
                 if self.items.is_empty() {
                     self.state.select(None);
@@ -338,6 +341,24 @@ impl App {
 
         self.delete_message = Some(message);
         self.app_state = AppState::Table;
+    }
+
+    fn sort_packages_by_usage(&mut self) {
+        // Simple sort: Only by last accessed time, oldest first
+        self.items.sort_by(|a, b| {
+            match (&a.last_accessed, &b.last_accessed) {
+                (None, None) => std::cmp::Ordering::Equal, // Both never used, keep original order
+                (None, Some(_)) => std::cmp::Ordering::Less, // Never used comes first
+                (Some(_), None) => std::cmp::Ordering::Greater, // Used comes after never used
+                (Some(a_time), Some(b_time)) => a_time.cmp(b_time), // Oldest access time first
+            }
+        });
+
+        // Reset selection to top after sorting
+        if !self.items.is_empty() {
+            self.state.select(Some(0));
+            self.scroll_state = self.scroll_state.position(0);
+        }
     }
 
     fn get_scanning_state(&self) -> Option<ScanningState> {
