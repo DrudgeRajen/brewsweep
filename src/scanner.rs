@@ -138,7 +138,7 @@ impl HomebrewScanner {
                 if cellar_path.exists() {
                     if let Ok(entries) = fs::read_dir(&cellar_path) {
                         for entry in entries.flatten() {
-                            if entry.file_type().map_or(false, |ft| ft.is_dir()) {
+                            if entry.file_type().is_ok_and(|ft| ft.is_dir()) {
                                 paths.push(entry.path());
                             }
                         }
@@ -199,10 +199,11 @@ impl HomebrewScanner {
         for (i, formula) in formulas.iter().enumerate() {
             {
                 let state = self.state.lock().unwrap();
-                while state.is_paused && !state.scan_complete {
-                    drop(state.clone());
-                    thread::sleep(Duration::from_millis(100));
+                if state.is_paused && !state.scan_complete {
+                    break;
                 }
+
+                thread::sleep(Duration::from_millis(100));
             }
 
             {
@@ -239,10 +240,10 @@ impl HomebrewScanner {
         for (i, cask) in casks.iter().enumerate() {
             {
                 let state = self.state.lock().unwrap();
-                while state.is_paused && !state.scan_complete {
-                    drop(state.clone());
-                    thread::sleep(Duration::from_millis(100));
+                if state.is_paused && !state.scan_complete {
+                    break;
                 }
+                thread::sleep(Duration::from_millis(100));
             }
 
             {
@@ -362,9 +363,12 @@ impl HomebrewScanner {
             // Read stderr if the command failed
             if let Some(stderr) = child.stderr.take() {
                 let reader = BufReader::new(stderr);
-                for line in reader.lines() {
-                    if let Ok(line_content) = line {
-                        let _ = output_sender.send(format!("ERROR: {}", line_content));
+                for line_result in reader.lines() {
+                    match line_result {
+                        Ok(line_content) => {
+                            let _ = output_sender.send(line_content);
+                        }
+                        Err(_) => break, // Stop reading on any IO error
                     }
                 }
             }
