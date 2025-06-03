@@ -6,6 +6,15 @@ A fast, terminal-based tool for managing your Homebrew packages by tracking thei
 ![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)
 ![Platform](https://img.shields.io/badge/Platform-macOS-lightgrey?style=for-the-badge)
 
+## What is it?
+**BrewSweep** scans your installed Homebrew packages (both formulas and casks) and displays them sorted by last access time. This makes it easy to identify:
+
+- **Never-used packages** - Installed but never accessed
+- **Rarely-used packages** - Haven't been used in months or years  
+- **Recently-used packages** - Actively used packages to keep
+
+The tool provides a clean, interactive interface for viewing package details and safely removing unused packages to free up disk space. **Sweep away the clutter** and keep only what you actually use!
+
 ## Demo
 
 Watch BrewSweep in action - scan your Homebrew packages, identify unused ones, and safely remove them:
@@ -15,15 +24,6 @@ Watch BrewSweep in action - scan your Homebrew packages, identify unused ones, a
 </p>
 
 *BrewSweep automatically sorts packages by last access time, making cleanup decisions easy*
-
-## What is it?
-**BrewSweep** scans your installed Homebrew packages (both formulas and casks) and displays them sorted by last access time. This makes it easy to identify:
-
-- **Never-used packages** - Installed but never accessed
-- **Rarely-used packages** - Haven't been used in months or years  
-- **Recently-used packages** - Actively used packages to keep
-
-The tool provides a clean, interactive interface for viewing package details and safely removing unused packages to free up disk space. **Sweep away the clutter** and keep only what you actually use!
 
 ## Features
 
