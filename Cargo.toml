@@ -1,9 +1,24 @@
 [package]
-name = "homebrew-usage-tracker"
+name = "brewsweep"
 version = "0.1.0"
 edition = "2021"
-authors = ["Homebrew Usage Tracker Contributors"]
-description = "A tool to track and manage homebrew packages based on usage"
+authors = ["Rajendra Sharma <drudge.rajan@gmail.com>"]
+license = "MIT"
+description = "A fast, terminal-based Homebrew usuage tracker - clean up unused packages with ease"
+readme = "README.md"
+homepage = "https://github.com/DrudgeRajen/brewsweep"
+repository = "https://github.com/DrudgeRajen/brewsweep"
+keywords = ["homebrew", "tui", "terminal", "package-manager", "cleanup"]
+categories = ["command-line-utilities", "development-tools"]
+exclude = [
+    "demo.gif",
+    ".github/",
+    "screenshots/",
+]
+
+[[bin]]
+name = "brewsweep"
+path = "src/main.rs"
 
 [dependencies]
 chrono = "0.4"
