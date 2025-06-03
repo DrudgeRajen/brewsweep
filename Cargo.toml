@@ -1,6 +1,6 @@
 [package]
 name = "brewsweep"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 edition = "2021"
 authors = ["Rajendra Sharma <drudge.rajan@gmail.com>"]
 license = "MIT"
