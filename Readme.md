@@ -1,20 +1,20 @@
-# Homebrew Usage Tracker
+# BrewSweep
 
 A fast, terminal-based tool for managing your Homebrew packages by tracking their usage and helping you identify packages that can be safely removed. Built with Rust and ratatui for a responsive TUI experience.
 
-![Homebrew Usage Tracker](https://img.shields.io/badge/TUI-Rust-orange?style=for-the-badge&logo=rust)
+![BrewSweep](https://img.shields.io/badge/TUI-Rust-orange?style=for-the-badge&logo=rust)
 ![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)
 ![Platform](https://img.shields.io/badge/Platform-macOS-lightgrey?style=for-the-badge)
 
 ## What is it?
 
-Homebrew Usage Tracker scans your installed Homebrew packages (both formulas and casks) and displays them sorted by last access time. This makes it easy to identify:
+**BrewSweep** scans your installed Homebrew packages (both formulas and casks) and displays them sorted by last access time. This makes it easy to identify:
 
 - **Never-used packages** - Installed but never accessed
 - **Rarely-used packages** - Haven't been used in months or years  
 - **Recently-used packages** - Actively used packages to keep
 
-The tool provides a clean, interactive interface for viewing package details and safely removing unused packages to free up disk space.
+The tool provides a clean, interactive interface for viewing package details and safely removing unused packages to free up disk space. **Sweep away the clutter** and keep only what you actually use!
 
 ## Features
 
@@ -49,25 +49,28 @@ The tool provides a clean, interactive interface for viewing package details and
 - **Homebrew** installed and in PATH - [Install Homebrew](https://brew.sh/)
 - **macOS** (primary platform) 
 
+### Using Cargo (Recommended)
+```bash
+cargo install brewsweep
+```
+
 ### From Source
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/homebrew-usage-tracker.git
-cd homebrew-usage-tracker
+git clone https://github.com/DrudgeRajen/brewsweep.git
+cd brewsweep
 
 # Build and install
 cargo build --release
 
 # Run the application
-./target/release/homebrew-usage-tracker
+./target/release/brewsweep
 ```
 
-### Using Cargo
+### Using Cargo from Git
 ```bash
-cargo install homebrew-usage-tracker
-
-# Or install from git
-cargo install --git https://github.com/yourusername/homebrew-usage-tracker.git
+# Install directly from git
+cargo install --git https://github.com/DrudgeRajen/brewsweep.git
 ```
 
 ## Usage
@@ -76,7 +79,7 @@ cargo install --git https://github.com/yourusername/homebrew-usage-tracker.git
 
 1. **Start the application**
    ```bash
-   homebrew-usage-tracker
+   brewsweep
    ```
 
 2. **Scan packages**
@@ -125,6 +128,7 @@ cargo install --git https://github.com/yourusername/homebrew-usage-tracker.git
 | `n`/`Space` | Cancel deletion |
 | `Esc` | Quit application |
 
+
 ### Package Information Display
 
 The tool displays packages with the following information:
@@ -158,8 +162,8 @@ Packages are automatically sorted by usage to prioritize cleanup candidates:
 
 ### Building from Source
 ```bash
-git clone https://github.com/yourusername/homebrew-usage-tracker.git
-cd homebrew-usage-tracker
+git clone https://github.com/DrudgeRajen/brewsweep.git
+cd brewsweep
 cargo build --release
 ```
 
@@ -177,12 +181,16 @@ Contributions are welcome! Please feel free to submit issues and pull requests.
 
 ### Development Setup
 ```bash
-git clone https://github.com/yourusername/homebrew-usage-tracker.git
-cd homebrew-usage-tracker
+git clone https://github.com/DrudgeRajen/brewsweep.git
+cd brewsweep
 cargo build
 cargo run
 ```
 
+### Running Tests
+```bash
+cargo test
+```
 
 ### Code Style
 This project uses standard Rust formatting:
@@ -190,7 +198,6 @@ This project uses standard Rust formatting:
 cargo fmt
 cargo clippy
 ```
-
 
 ## License
 
@@ -213,6 +220,6 @@ If you find this tool useful, please consider:
 
 ---
 
-**Happy Homebrew cleaning! 🧹✨**
+**Happy Homebrew sweeping! 🧹✨**
 
 *Keep your system lean and your packages meaningful.*
